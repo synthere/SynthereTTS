@@ -64,5 +64,5 @@ Synther TTS has the following features:
 ## Appreciation 
 
 - [Controllable Emphasis with zero data for text-to-speechr](https://arxiv.org/abs/2307.07062) Insights that emphasize control 
-- [sherpa-onnx](https:/ /github.com/k2-fsa/sherpa-onnx) Efficient and easy-to-use VITS model
-[GPT_SoVITS](https://github.com/RVC-Boss/GPT-SoVITS) provides an excellent Chinese speech synthesis model
+- [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) Efficient and easy-to-use VITS model
+- [GPT_SoVITS](https://github.com/RVC-Boss/GPT-SoVITS) provides an excellent Chinese speech synthesis model
