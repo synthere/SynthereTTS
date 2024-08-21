@@ -3,8 +3,8 @@ import sys
 import struct
 import threading
 
-from mainsyn import Ui_MainWindow
-
+from mainsyn import Ui_MainWindow #pyuic5.exe -o .\mainsyn.py .\mainsyn.ui
+#pyinstaller synth.spec
 from PyQt5.QtCore import QSize, Qt, QUrl, pyqtSignal, QTimer, QBuffer, QByteArray
 from PyQt5.QtGui import QColor, QPalette, QIcon, QPixmap
 from PyQt5.QtMultimedia import (
@@ -14,10 +14,10 @@ from PyQt5.QtMultimedia import (
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, QMessageBox
 
 import basictts
-import gpttts
-
+#import gpttts
+import onlinetts
 import soundfile as sf
-
+from my_utils import emph_fun
 class ViewerWindow(QMainWindow):
     state = pyqtSignal(bool)
 
@@ -41,6 +41,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.audioDuration = 0
         self.cur_play_time = "0:00"
         self.basicTTS = basictts.BasicTTS()
+        self.onlineTTS = onlinetts.OnlineTTS()
         self.basic_model = 'amy'
         self.audio_data = []
         self.audio_sr = 0
@@ -58,11 +59,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.max_duration_ms = 0
         self.emphasize = 0
         self.denoise = 0
+        self.basic_emph_en = 0
+        self.basic_denoise_en = 0
         self.ref_audio_file = ''
         self.saved_file = ''
 
         self.emph_check.stateChanged.connect(self.empha_check_changed)
         self.denoise_check.stateChanged.connect(self.denoise_check_changed)
+
+        self.basic_emph.stateChanged.connect(self.basic_empha_check_changed)
+        self.basic_denoise.stateChanged.connect(self.basic_denoise_check_changed)
+
+        self.onlie_emph.stateChanged.connect(self.basic_empha_check_changed)
+        self.online_denoise.stateChanged.connect(self.basic_denoise_check_changed)
 
         # Add viewer for video playback, separate floating window.
         self.viewer = ViewerWindow(self)
@@ -125,7 +134,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.denoise = 1
         else:
             self.denoise = 0
+    def basic_empha_check_changed(self, state):
+        if 2 == state:
+            self.basic_emph_en = 1
+        else:
+            self.basic_emph_en = 0
 
+    def basic_denoise_check_changed(self, state):
+        if 2 == state:
+            self.basic_denoise_en = 1
+        else:
+            self.basic_denoise_en = 0
     def select_audio_file(self):
         options = QFileDialog.Options()
         file, _ = QFileDialog.getOpenFileName(self, 'Select audio file', '', 'Audio File(*.wav *.mp3 *.flac);;All Files (*)',
@@ -316,6 +335,27 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.audiolen.setText("0:00/0:00")
         self.synthbut.setText("Terminate")
         if 0 == self.tabWidget.currentIndex():
+            role = self.role_online.currentText()
+            print("mod select:", role)
+
+            self.audio_data, dur, self.audio_sr = self.onlineTTS.generate(self.text, role)
+            #post process
+            if 1 == self.basic_emph_en and self.chinese_count > 0:
+                self.audio_data = emph_fun(self.text, self.audio_data, self.basic_denoise_en)
+                dur = len(self.audio_data) / self.audio_sr
+
+            self.audio_duration_sec = int(dur)
+            print("duration:", self.audio_duration_sec)
+            QApplication.processEvents()
+            self.synthbut.setText("Generate")
+            self.synthbut.setEnabled(True)
+            self.slid_previous_value = 0
+            self.horizontalSlider.setSliderPosition(self.slid_previous_value)
+            self.audiolen.setText("0:00" + '/' + self.format_time(self.audio_duration_sec))
+            audio_data_int = [int(sample * 32767) for sample in self.audio_data]
+            self.audio_bytes = struct.pack('h' * len(self.audio_data), *audio_data_int)
+
+        elif 1 == self.tabWidget.currentIndex():
             self.basic_model = self.modbasic.currentText()
             print("mod select:", self.basic_model)
             if not self.validate_text(self.basic_model):
@@ -324,6 +364,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.synthbut.setEnabled(True)
                 return
             self.audio_data, dur, self.audio_sr = self.basicTTS.generate(self.text, self.basic_model)
+            #post process
+            if 1 == self.basic_emph_en and self.chinese_count > 0:
+                self.audio_data = emph_fun(self.text, self.audio_data, self.basic_denoise_en)
+                dur = len(self.audio_data) / self.audio_sr
 
             self.audio_duration_sec = int(dur)
             print("duration:", self.audio_duration_sec)
